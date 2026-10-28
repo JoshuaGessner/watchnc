@@ -10,9 +10,10 @@ Connect and authorize your phone and watch with adb first. If a single phone
 and watch are connected, they are selected automatically. If multiple devices
 of either kind are connected, choose a serial or pass it as an option.
 
-By default, APKs are read from the Gradle debug build directories. --apk-dir
-uses phone-debug.apk, wear-debug.apk and face-debug.apk from DIRECTORY instead.
-Set ADB to the adb executable if it is not on PATH.
+In a release download, APKs are read from the included apks folder. In a source
+checkout, they are read from the Gradle debug build directories. --apk-dir uses
+phone.apk, wear.apk and face.apk (or their -debug.apk equivalents) from that
+folder instead. Set ADB to the adb executable if it cannot be found.
 EOF
 }
 
@@ -30,12 +31,23 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+if ! command -v "$adb" >/dev/null 2>&1 && [ -z "${ADB:-}" ]; then
+  for sdk in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk" "$HOME/Android/Sdk"; do
+    if [ -n "$sdk" ] && [ -x "$sdk/platform-tools/adb" ]; then adb="$sdk/platform-tools/adb"; break; fi
+  done
+fi
 if ! command -v "$adb" >/dev/null 2>&1; then
-  echo "adb not found. Install Android SDK Platform-Tools and add it to PATH, or set ADB to its full path." >&2
+  echo "adb not found. Download Android SDK Platform-Tools: https://developer.android.com/tools/releases/platform-tools" >&2
+  echo "Add its platform-tools folder to PATH, or set ADB to the full path to adb." >&2
   exit 1
 fi
+if [ -z "$apk_dir" ] && [ -d "$root/apks" ]; then apk_dir="$root/apks"; fi
 if [ -n "$apk_dir" ]; then
-  phone_apk="$apk_dir/phone-debug.apk"; watch_apk="$apk_dir/wear-debug.apk"; face_apk="$apk_dir/face-debug.apk"
+  if [ -f "$apk_dir/phone.apk" ] || [ -f "$apk_dir/wear.apk" ] || [ -f "$apk_dir/face.apk" ]; then
+    phone_apk="$apk_dir/phone.apk"; watch_apk="$apk_dir/wear.apk"; face_apk="$apk_dir/face.apk"
+  else
+    phone_apk="$apk_dir/phone-debug.apk"; watch_apk="$apk_dir/wear-debug.apk"; face_apk="$apk_dir/face-debug.apk"
+  fi
 else
   phone_apk="$root/phone/build/outputs/apk/debug/phone-debug.apk"
   watch_apk="$root/wear/build/outputs/apk/debug/wear-debug.apk"
@@ -44,27 +56,50 @@ fi
 for file in "$phone_apk" "$watch_apk" "$face_apk"; do
   if [ ! -f "$file" ]; then
     echo "APK not found: $file" >&2
-    echo "Build the apps first; see the README. No apps were installed." >&2
+    echo "Download the complete release bundle or build the apps first; see the README. No apps were installed." >&2
     exit 1
   fi
 done
 
+find_devices() {
+  local devices serial state rest features
+  devices=$("$adb" devices) || { echo "Could not contact adb." >&2; return 1; }
+  phones=(); watches=()
+  while IFS=$'\t' read -r serial state rest; do
+    [ "$state" = "device" ] || continue
+    [ -n "$serial" ] || continue
+    if ! features=$("$adb" -s "$serial" shell pm list features 2>/dev/null); then
+      echo "Could not identify $serial; check its debugging authorization." >&2
+      continue
+    fi
+    if printf '%s\n' "$features" | tr -d '\r' | grep -Fxq 'feature:android.hardware.type.watch'; then
+      watches+=("$serial")
+    else
+      phones+=("$serial")
+    fi
+  done <<< "$devices"
+}
 echo "Checking connected devices..."
-devices=$("$adb" devices) || { echo "Could not contact adb." >&2; exit 1; }
-phones=(); watches=()
-while IFS=$'\t' read -r serial state rest; do
-  [ "$state" = "device" ] || continue
-  [ -n "$serial" ] || continue
-  if ! features=$("$adb" -s "$serial" shell pm list features 2>/dev/null); then
-    echo "Could not identify $serial; check its debugging authorization." >&2
-    continue
-  fi
-  if printf '%s\n' "$features" | tr -d '\r' | grep -Fxq 'feature:android.hardware.type.watch'; then
-    watches+=("$serial")
-  else
-    phones+=("$serial")
-  fi
-done <<< "$devices"
+find_devices
+if [ -z "${watches[0]+set}" ] && [ -z "$watch" ] && [ -t 0 ]; then
+  echo "No watch is connected. You can pair it with wireless debugging now."
+  printf 'Pair a watch over Wi-Fi? [y/N] '
+  read -r answer
+  case "$answer" in
+    y|Y|yes|YES)
+      echo "On the watch, open Developer options → Wireless debugging → Pair new device."
+      printf 'Enter its PAIRING IP:port: '
+      read -r pair_address
+      [ -n "$pair_address" ] || { echo "No pairing address entered." >&2; exit 1; }
+      "$adb" pair "$pair_address" || { echo "Pairing failed; check the address and code on the watch." >&2; exit 1; }
+      echo "Return to Wireless debugging on the watch. Its connection port is usually different from the pairing port."
+      printf 'Enter its CONNECTION IP:port: '
+      read -r connect_address
+      [ -n "$connect_address" ] || { echo "No connection address entered." >&2; exit 1; }
+      "$adb" connect "$connect_address" || { echo "Connection failed; check the watch address." >&2; exit 1; }
+      find_devices ;;
+  esac
+fi
 
 choose() {
   local kind=$1 requested=$2 item found=no

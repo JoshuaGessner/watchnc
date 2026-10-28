@@ -10,7 +10,7 @@ WatchNC is an experimental Android phone and Wear OS companion for one observed 
 - A paired Wear OS watch. The companion app requires Android API 28 or later; **WatchNC Dial requires Wear OS 4 / API 33 or later**. The install script installs all three apps and requires the latter.
 - Google Play services on both devices, a working phone/watch pairing, and notification permission on both.
 - A Mac or Linux computer with [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) (`adb`). Windows users can run the install script from a Bash environment such as Git Bash, with `adb` available on PATH.
-- Either three trusted APKs built together, or Android Studio, JDK 17 or 21, Android SDK platform 35, and internet access to build them from this source. The first Gradle build downloads its dependencies.
+- The [latest WatchNC release bundle](https://github.com/JoshuaGessner/watchnc/releases), or Android Studio, JDK 17 or 21, Android SDK platform 35, and internet access if building from source. The first Gradle build downloads its dependencies.
 
 ## Machine and connection
 
@@ -24,38 +24,52 @@ Enter the CNC IPv4 address in the phone app. If the phone already has an address
 
 The app opens only its CNC socket through Android Ethernet and does not bind the process or change system network settings. It expects TCP port 8193. A bridge must provide DHCP on the same link as the CNC; merely connecting a conventional router's WAN port is not sufficient.
 
-## Build and install
+## Install the release
 
-1. If building from source, open this folder in Android Studio and install the SDK components it requests. Alternatively, set `ANDROID_HOME` to your Android SDK directory and build from a terminal in this folder:
+No Android Studio, Java, or source build is needed for the release bundle. The initial beta APKs are signed with the developer’s Android debug key; they are experimental and do not use a dedicated release signing key.
 
-   ```sh
-   ./gradlew :phone:assembleDebug :wear:assembleDebug :face:assembleDebug :common:test
-   ```
-
-   On Windows, use `gradlew.bat` in Command Prompt or PowerShell. The APKs are generated under each module's `build/outputs/apk/debug/` directory. These are debug builds, not Play Store releases.
-
-2. Enable [developer options and USB debugging](https://developer.android.com/studio/run/device) on the phone, connect it by USB, unlock it, and accept the computer's debugging authorization prompt.
-3. Connect the watch to the computer. Most watches use [wireless debugging over Wi-Fi](https://developer.android.com/training/wearables/get-started/debug-wifi): put the watch and computer on the same Wi-Fi network, enable ADB and wireless debugging on the watch, then use the pairing address and code displayed by the watch:
-
-   ```sh
-   adb pair WATCH_IP:PAIRING_PORT
-   adb connect WATCH_IP:CONNECTION_PORT
-   adb devices
-   ```
-
-   The connection port is usually different from the pairing port. Both devices should appear as `device` in the list. Wi-Fi is needed here for wireless installation, not for the CNC connection.
-4. In a Bash terminal in this directory, run:
+1. Download the release ZIP from [GitHub Releases](https://github.com/JoshuaGessner/watchnc/releases) and extract it. Keep `install.sh` and the `apks` folder together.
+2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) on the computer. Make `adb` available on your PATH, or set the `ADB` environment variable to its full path. The script also checks common Android SDK locations.
+3. Enable [developer options and USB debugging](https://developer.android.com/studio/run/device) on the phone, connect it to the computer by USB, unlock it, and accept the computer's debugging authorization prompt.
+4. On the watch, enable developer options and [wireless debugging](https://developer.android.com/training/wearables/get-started/debug-wifi). Connect the watch and computer to the same Wi-Fi network. Wi-Fi is used for installation; the CNC connection uses Ethernet.
+5. Open a Bash terminal in the extracted folder and run:
 
    ```sh
    ./install.sh
    ```
 
-   The script installs the phone app on the phone and the companion and dial on the watch. It selects a single detected phone and watch automatically; if several are connected, it asks which serial to use. For an unattended install, provide `--phone SERIAL --watch SERIAL` using the values from `adb devices`. For a folder of trusted, prebuilt APKs named `phone-debug.apk`, `wear-debug.apk` and `face-debug.apk`, use `./install.sh --apk-dir /path/to/apks`. Run `./install.sh --help` for options. The script does not uninstall apps or erase their data; if an install fails after an earlier one succeeded, it reports the partial installation.
-5. Open WatchNC on both devices and allow notifications when prompted. You can turn off USB and wireless debugging after installation.
+   The installer selects one connected phone and watch automatically. If it cannot find a watch, it offers to pair one: enter the **pairing IP:port**, type the code when `adb` asks for it, then enter the watch's **connection IP:port**. These ports are usually different. If several phones or watches are connected, choose the appropriate serial when asked. Windows users can run the script in Git Bash with Platform-Tools on PATH.
+6. Open WatchNC on both devices and allow notifications when prompted. Long-press the watch face to select **WatchNC Dial**, then select its **CNC patrol light** complication if necessary. You can disable debugging after installation.
+
+The script never uninstalls apps or clears data. Android will reject an update signed with a different key, including many earlier source-built debug versions. If that happens, back up anything you need and remove the incompatible previous WatchNC apps from the affected devices before installing the release; uninstalling can erase app data. Earlier installs may have succeeded if a later install fails.
+
+### Connect the watch manually
+
+If pairing through the installer does not work, use the addresses shown by the watch in a terminal:
+
+```sh
+adb pair WATCH_IP:PAIRING_PORT
+adb connect WATCH_IP:CONNECTION_PORT
+adb devices
+./install.sh
+```
+
+Both devices should appear as `device` in the list. If a device is `unauthorized`, unlock it and accept the debugging prompt. If the watch is missing, repeat the pairing and connect steps and verify the network allows devices to reach one another. To select devices explicitly, run `./install.sh --phone SERIAL --watch SERIAL`; run `./install.sh --help` for more options.
+
+## Build from source
+
+Open this folder in Android Studio and install the SDK components it requests. Alternatively, set `ANDROID_HOME` to your Android SDK directory and build from a terminal in this folder:
+
+```sh
+./gradlew :phone:assembleDebug :wear:assembleDebug :face:assembleDebug :common:test
+./install.sh
+```
+
+On Windows, use `gradlew.bat` in Command Prompt or PowerShell to build, then Git Bash to run the install script. The script uses APKs from the Gradle debug build directories when no release bundle's `apks` folder is present. To install from a different folder containing `phone.apk`, `wear.apk`, and `face.apk` (or `phone-debug.apk`, `wear-debug.apk`, and `face-debug.apk`), pass `--apk-dir /path/to/apks`.
 
 Build the three APKs together with the **same signing key**, especially the phone and watch apps: their shared application ID and matching signing certificates are required for phone/watch data exchange. The watch face and companion should also be built and signed as a matching set so the face can use its intended complication source. Android normally creates a debug signing key per computer; separately built APKs from different computers may not communicate, and Android rejects an update signed with a different key. Keep your signing key for future updates. A debug key is intended for development, so published binaries should use a privately held release key and a consistent, documented signing process. Do not share a private key. Reinstalling after removing an incompatible existing app can erase its data; back up anything you need first.
 
-Troubleshooting: if a device is `unauthorized`, unlock it and accept the prompt. If the watch is missing, repeat the wireless pairing/connect steps and verify that the network allows devices to reach each other. If `adb` is missing, add Platform-Tools to PATH or set `ADB` to its full executable path. If the watch face has no machine background, edit the face and choose the **CNC patrol light** complication. On Android versions that restrict sideloading, follow the device's prompts and install only APKs from a source you trust.
+Troubleshooting: if `adb` is missing, add Platform-Tools to PATH or set `ADB` to its full executable path. If the watch face has no machine background, edit the face and choose the **CNC patrol light** complication. On Android versions that restrict sideloading, follow the device's prompts and install only APKs from a source you trust.
 
 Connect to the machine network over Ethernet, enter the CNC IPv4 address, and tap **Start monitoring**. Stop monitoring before changing the address. A phone foreground notification shows connection status. Open WatchNC on the watch: its display requests that the screen stay on while the app is visible; tap the display to switch this off and conserve battery. The OS may still suspend or close it.
 

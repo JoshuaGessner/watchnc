@@ -8,3 +8,4 @@ local.properties
 .env
 .env.*
 .DS_Store
+.release-signing/
