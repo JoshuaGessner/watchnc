@@ -69,4 +69,6 @@ The R0032 mapping was observed on one machine; flashing and long-term reliabilit
 
 ## License and feedback
 
-WatchNC is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). It permits qualifying noncommercial use, including personal use, subject to its terms; commercial use requires a separate license. For a commercial license or to report an issue, open a GitHub issue. Please include the phone and watch models, Android and Wear OS versions, controller identity, and what you observed. Do not include network addresses, credentials, proprietary controller data, or other sensitive shop information.
+WatchNC is free software, licensed under the [GNU General Public License, version 3](LICENSE) (GPL-3.0-only). Copyright © 2026 WatchNC contributors. The license permits commercial use and sale; distributing modified versions comes with obligations to provide the corresponding source under the same license. Third-party dependencies and the Gradle wrapper remain subject to their own licenses.
+
+To report an issue, open a GitHub issue. Please include the phone and watch models, Android and Wear OS versions, controller identity, and what you observed. Do not include network addresses, credentials, proprietary controller data, or other sensitive shop information.
