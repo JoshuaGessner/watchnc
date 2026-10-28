@@ -1,0 +1,25 @@
+// Opt-in release signing: paths point to private files kept outside the repository.
+def keyPath = System.getenv('WATCHNC_KEYSTORE')
+def passwordPath = System.getenv('WATCHNC_PASSWORD_FILE')
+if (!keyPath || !passwordPath) {
+    throw new GradleException('Set WATCHNC_KEYSTORE and WATCHNC_PASSWORD_FILE to your private release signing files.')
+}
+def keyFile = new File(keyPath)
+def passwordFile = new File(passwordPath)
+if (!keyFile.isFile() || !passwordFile.isFile()) {
+    throw new GradleException('Release keystore or password file is missing.')
+}
+def secret = passwordFile.getText('UTF-8').trim()
+if (!secret) throw new GradleException('The release password file is empty.')
+
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        def signing = project.android.signingConfigs.create('watchncRelease') {
+            storeFile = keyFile
+            storePassword = secret
+            keyAlias = 'watchnc'
+            keyPassword = secret
+        }
+        project.android.buildTypes.release.signingConfig = signing
+    }
+}

@@ -26,7 +26,7 @@ The app opens only its CNC socket through Android Ethernet and does not bind the
 
 ## Install the release
 
-No Android Studio, Java, or source build is needed for the release bundle. The initial beta APKs are signed with the developer’s Android debug key; they are experimental and do not use a dedicated release signing key.
+No Android Studio, Java, or source build is needed for the release bundle. The apps remain experimental.
 
 1. Download the release ZIP from [GitHub Releases](https://github.com/JoshuaGessner/watchnc/releases) and extract it. Keep `install.sh` and the `apks` folder together.
 2. Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) on the computer. Make `adb` available on your PATH, or set the `ADB` environment variable to its full path. The script also checks common Android SDK locations.
@@ -42,6 +42,8 @@ No Android Studio, Java, or source build is needed for the release bundle. The i
 6. Open WatchNC on both devices and allow notifications when prompted. Long-press the watch face to select **WatchNC Dial**, then select its **CNC patrol light** complication if necessary. You can disable debugging after installation.
 
 The script never uninstalls apps or clears data. Android will reject an update signed with a different key, including many earlier source-built debug versions. If that happens, back up anything you need and remove the incompatible previous WatchNC apps from the affected devices before installing the release; uninstalling can erase app data. Earlier installs may have succeeded if a later install fails.
+
+The 0.1.0 beta used a different signing key. To install 0.2.0 or later over that beta, remove the old WatchNC phone app, watch app, and WatchNC Dial first. Their settings may be erased. Future releases using the same release key can be installed as updates.
 
 ### Connect the watch manually
 
@@ -68,6 +70,8 @@ Open this folder in Android Studio and install the SDK components it requests. A
 On Windows, use `gradlew.bat` in Command Prompt or PowerShell to build, then Git Bash to run the install script. The script uses APKs from the Gradle debug build directories when no release bundle's `apks` folder is present. To install from a different folder containing `phone.apk`, `wear.apk`, and `face.apk` (or `phone-debug.apk`, `wear-debug.apk`, and `face-debug.apk`), pass `--apk-dir /path/to/apks`.
 
 Build the three APKs together with the **same signing key**, especially the phone and watch apps: their shared application ID and matching signing certificates are required for phone/watch data exchange. The watch face and companion should also be built and signed as a matching set so the face can use its intended complication source. Android normally creates a debug signing key per computer; separately built APKs from different computers may not communicate, and Android rejects an update signed with a different key. Keep your signing key for future updates. A debug key is intended for development, so published binaries should use a privately held release key and a consistent, documented signing process. Do not share a private key. Reinstalling after removing an incompatible existing app can erase its data; back up anything you need first.
+
+For maintainers, `release-signing.init.gradle` enables signing with a PKCS#12 keystore containing the alias `watchnc` and using the same password for the keystore and key. Set `WATCHNC_KEYSTORE` and `WATCHNC_PASSWORD_FILE` to absolute paths to private files, then run `./gradlew -I release-signing.init.gradle :phone:assembleRelease :wear:assembleRelease :face:assembleRelease`. Keep those files out of the repository and maintain a separate secure backup. Without the init script, release builds are unsigned.
 
 Troubleshooting: if `adb` is missing, add Platform-Tools to PATH or set `ADB` to its full executable path. If the watch face has no machine background, edit the face and choose the **CNC patrol light** complication. On Android versions that restrict sideloading, follow the device's prompts and install only APKs from a source you trust.
 
