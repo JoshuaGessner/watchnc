@@ -3,13 +3,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.graphics.*;
-import android.media.AudioAttributes;
-import android.media.Ringtone;
-import android.media.RingtoneManager;
-import android.net.Uri;
 import android.os.*;
 import android.view.*;
-import android.view.accessibility.AccessibilityNodeInfo;
 import com.google.android.gms.wearable.*;
 import com.watchnc.core.PatrolState;
 import java.util.Date;
@@ -17,7 +12,6 @@ import java.util.Date;
 public class WatchActivity extends Activity implements DataClient.OnDataChangedListener {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Dashboard dashboard;
-    private Ringtone previewTone;
     private int relay = -1;
     private long sampleTime;
     private boolean keepAwake = true;
@@ -38,7 +32,7 @@ public class WatchActivity extends Activity implements DataClient.OnDataChangedL
         });
         handler.post(refresh);
     }
-    @Override protected void onPause() { if (previewTone != null) previewTone.stop(); handler.removeCallbacks(refresh); Wearable.getDataClient(this).removeListener(this); super.onPause(); }
+    @Override protected void onPause() { handler.removeCallbacks(refresh); Wearable.getDataClient(this).removeListener(this); super.onPause(); }
     @Override public void onDataChanged(DataEventBuffer events) {
         for (DataEvent event : events) {
             String path = event.getDataItem().getUri().getPath();
@@ -48,18 +42,6 @@ public class WatchActivity extends Activity implements DataClient.OnDataChangedL
             }
         }
     }
-    private void previewSound(String id) {
-        if (!id.equals("default") && !id.startsWith("content://media/")) return;
-        Uri uri = id.equals("default") ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) : Uri.parse(id);
-        try {
-            if (previewTone != null) previewTone.stop();
-            previewTone = RingtoneManager.getRingtone(this, uri);
-            if (previewTone != null) {
-                previewTone.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-                previewTone.play();
-            }
-        } catch (RuntimeException ignored) { }
-    }
     private void accept(DataItem item) {
         DataMap map = DataMapItem.fromDataItem(item).getDataMap(); long time = map.getLong("time", 0);
         if (!PatrolState.acceptSample(time, sampleTime, System.currentTimeMillis())) return;
@@ -67,24 +49,10 @@ public class WatchActivity extends Activity implements DataClient.OnDataChangedL
     }
     private class Dashboard extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final int previewAction = View.generateViewId();
         Dashboard() {
             super(WatchActivity.this);
             setClickable(true); setFocusable(true);
             setContentDescription("CNC patrol light status. Tap to toggle keep screen on.");
-            setAccessibilityDelegate(new AccessibilityDelegate() {
-                @Override public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
-                    super.onInitializeAccessibilityNodeInfo(host, info);
-                    info.addAction(new AccessibilityNodeInfo.AccessibilityAction(previewAction, "Preview tone"));
-                }
-                @Override public boolean performAccessibilityAction(View host, int action, Bundle args) {
-                    if (action == previewAction) {
-                        previewSound(getSharedPreferences("sound", 0).getString("id", "default"));
-                        return true;
-                    }
-                    return super.performAccessibilityAction(host, action, args);
-                }
-            });
         }
         private void text(Canvas c, String s, float x, float y, float size, int color, boolean bold) {
             p.setColor(color); p.setTextSize(size); p.setTypeface(Typeface.create(bold ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL)); p.setTextAlign(Paint.Align.CENTER); c.drawText(s, x, y, p);
@@ -111,22 +79,10 @@ public class WatchActivity extends Activity implements DataClient.OnDataChangedL
             String status = valid ? ((relay & 0xd0) == 0 ? "LIGHTS OFF" : "LIVE SIGNAL") : "NO CURRENT DATA";
             text(canvas, status, 160, 222, 13, valid ? 0xffedf6f3 : 0xffffc451, true);
             text(canvas, keepAwake ? "SCREEN ON  ·  TAP TO CHANGE" : "SCREEN AUTO  ·  TAP TO CHANGE", 160, 244, 9, 0xffa4b7b9, false);
-            p.setColor(0xff1c3036); canvas.drawRoundRect(99, 253, 221, 280, 13, 13, p);
-            text(canvas, "▶  PREVIEW TONE", 160, 271, 10, 0xff8de4c0, true);
             setContentDescription("CNC patrol lights: " + (valid ? StateListener.label(PatrolState.normalize(relay)) : "no current data") + ". Tap to toggle keep screen on.");
             canvas.restore();
         }
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            if (e.getAction() == MotionEvent.ACTION_UP) {
-                float scale = Math.min(getWidth(), getHeight()) / 320f;
-                float x = (e.getX() - (getWidth() - 320 * scale) / 2) / scale;
-                float y = (e.getY() - (getHeight() - 320 * scale) / 2) / scale;
-                if (x >= 85 && x <= 235 && y >= 250 && y <= 290) {
-                    previewSound(getSharedPreferences("sound", 0).getString("id", "default"));
-                } else performClick();
-            }
-            return true;
-        }
+        @Override public boolean onTouchEvent(MotionEvent e) { if (e.getAction() == MotionEvent.ACTION_UP) performClick(); return true; }
         @Override public boolean performClick() {
             super.performClick(); keepAwake = !keepAwake;
             if (keepAwake) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

@@ -8,8 +8,6 @@
         <activity android:name=".WatchActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
         <service android:name=".StateListener" android:exported="true">
             <intent-filter><action android:name="com.google.android.gms.wearable.DATA_CHANGED"/><data android:scheme="wear" android:host="*" android:pathPrefix="/machine-state"/></intent-filter>
-            <intent-filter><action android:name="com.google.android.gms.wearable.DATA_CHANGED"/><data android:scheme="wear" android:host="*" android:path="/alert-sound"/></intent-filter>
-            <intent-filter><action android:name="com.google.android.gms.wearable.DATA_CHANGED"/><data android:scheme="wear" android:host="*" android:path="/tone-request"/></intent-filter>
         </service>
         <service android:name=".MachineComplication" android:exported="true" android:label="CNC patrol light" android:icon="@android:drawable/ic_dialog_info" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
