@@ -1,0 +1,30 @@
+<WatchFace width="320" height="320">
+  <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
+  <Scene backgroundColor="#111B22">
+    <PartText x="40" y="227" width="240" height="34">
+      <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="14" color="#E2ECEA">NO CURRENT DATA</Font></Text>
+    </PartText>
+    <ComplicationSlot slotId="4" supportedTypes="PHOTO_IMAGE EMPTY" x="0" y="0" width="320" height="320">
+      <BoundingOval x="0" y="0" width="320" height="320"/>
+      <DefaultProviderPolicy primaryProvider="com.watchnc.app/com.watchnc.app.MachineComplication" primaryProviderType="PHOTO_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY"/>
+      <Complication type="PHOTO_IMAGE">
+        <PartImage x="0" y="0" width="320" height="320"><Image resource="[COMPLICATION.PHOTO_IMAGE]"/></PartImage>
+      </Complication>
+    </ComplicationSlot>
+    <Group name="face_details" x="0" y="0" width="320" height="320">
+      <Variant mode="AMBIENT" target="alpha" value="0"/>
+      <PartDraw x="0" y="0" width="320" height="320">
+        <Ellipse x="13" y="13" width="294" height="294"><Stroke color="#40FFFFFF" thickness="1"/></Ellipse>
+        <Arc centerX="160" centerY="160" width="294" height="294" startAngle="320" endAngle="337"><Stroke color="#AAFFFFFF" thickness="2" cap="ROUND"/></Arc>
+      </PartDraw>
+    </Group>
+    <PartText x="30" y="62" width="260" height="25">
+      <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="12" color="#EDF6F3" weight="MEDIUM">WATCHNC</Font></Text>
+    </PartText>
+    <DigitalClock x="25" y="111" width="270" height="96">
+      <TimeText x="0" y="0" width="270" height="96" format="hh:mm" align="CENTER">
+        <Font family="SYNC_TO_DEVICE" size="70" color="#FFFFFF"/>
+      </TimeText>
+    </DigitalClock>
+  </Scene>
+</WatchFace>
