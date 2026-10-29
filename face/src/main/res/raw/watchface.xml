@@ -21,6 +21,14 @@
     <PartText x="30" y="62" width="260" height="25">
       <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="12" color="#EDF6F3" weight="MEDIUM">WATCHNC</Font></Text>
     </PartText>
+    <PartDraw x="138" y="91" width="18" height="12">
+      <RoundRectangle x="0.5" y="1.5" width="14" height="9" cornerRadiusX="2" cornerRadiusY="2"><Stroke color="#E2ECEA" thickness="1"/></RoundRectangle>
+      <Rectangle x="15" y="4" width="2" height="4"><Fill color="#E2ECEA"/></Rectangle>
+      <Rectangle x="2.5" y="3.5" width="10" height="5"><Fill color="#BFE2ECEA"/><Transform target="width" value="[BATTERY_PERCENT] * 0.1"/></Rectangle>
+    </PartDraw>
+    <PartText x="159" y="88" width="48" height="18">
+      <Text align="LEFT"><Font family="SYNC_TO_DEVICE" size="11" color="#EDF6F3"><Template><![CDATA[%d%%]]><Parameter expression="[BATTERY_PERCENT]"/></Template></Font></Text>
+    </PartText>
     <DigitalClock x="25" y="111" width="270" height="96">
       <TimeText x="0" y="0" width="270" height="96" format="hh:mm" align="CENTER">
         <Font family="SYNC_TO_DEVICE" size="70" color="#FFFFFF"/>

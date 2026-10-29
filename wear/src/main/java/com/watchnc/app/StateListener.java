@@ -16,6 +16,21 @@ import com.watchnc.core.PatrolState;
 
 /** Receives updates while the watch activity is closed. */
 public class StateListener extends WearableListenerService {
+    static final String[] TELEMETRY_KEYS = {"spindle", "program", "sequence", "cycle", "feed", "mode", "machineStatus", "tool"};
+    private static final String[] FACE_KEYS = {"program", "sequence", "cycle", "spindle", "tool"};
+    private static final String[] FACE_SETTINGS = {"showProgram", "showSequence", "showCycle", "showSpindle", "showTool"};
+    // Keep a fresh complication before its 15-second validity expires even if values do not change.
+    private static final long COMPLICATION_HEARTBEAT_MS = 5000;
+    static String cleanTelemetry(String value) {
+        if (value == null) return "";
+        String cleaned = value.replaceAll("[\\p{Cntrl}\\s]+", " ").trim();
+        if (cleaned.length() > 160) cleaned = cleaned.substring(0, 160);
+        return cleaned;
+    }
+    static String cleanTool(String value) {
+        String tool = cleanTelemetry(value);
+        return tool.matches("T[0-9]+") ? tool.substring(1) : tool;
+    }
     static String label(int value) {
         if (value < 0) return "UNKNOWN";
         StringBuilder s = new StringBuilder();
@@ -27,6 +42,23 @@ public class StateListener extends WearableListenerService {
     @Override public void onDataChanged(DataEventBuffer events) {
         for (DataEvent e : events) {
             if (e.getType() != DataEvent.TYPE_CHANGED) continue;
+            if ("/watch-settings".equals(e.getDataItem().getUri().getPath())) {
+                DataMap settings = DataMapItem.fromDataItem(e.getDataItem()).getDataMap();
+                android.content.SharedPreferences.Editor editor = getSharedPreferences("watch_settings", 0).edit();
+                for (String key : FACE_SETTINGS)
+                    editor.putBoolean(key, settings.getBoolean(key, !key.equals("showTool")));
+                boolean saved = editor.commit();
+                if (saved) {
+                    getSharedPreferences("state", 0).edit().putLong("complicationRequestedAt", System.currentTimeMillis()).apply();
+                    ComplicationDataSourceUpdateRequester.create(this, new ComponentName(this, MachineComplication.class)).requestUpdateAll();
+                }
+                PutDataMapRequest ack = PutDataMapRequest.create("/settings-ack");
+                ack.getDataMap().putString("request", settings.getString("request", ""));
+                ack.getDataMap().putString("error", saved ? "" : "Unable to save settings");
+                ack.getDataMap().putLong("time", System.currentTimeMillis());
+                Wearable.getDataClient(this).putDataItem(ack.asPutDataRequest().setUrgent());
+                continue;
+            }
             if (!"/machine-state".equals(e.getDataItem().getUri().getPath())) continue;
             DataMap map = DataMapItem.fromDataItem(e.getDataItem()).getDataMap();
             long time = map.getLong("time", 0), now = System.currentTimeMillis();
@@ -36,8 +68,26 @@ public class StateListener extends WearableListenerService {
             int relay = map.getInt("relay", -1);
             int normalized = PatrolState.normalize(relay);
             int previous = PatrolState.fresh(previousTime, now) ? p.getInt("relay", -1) : -1;
-            p.edit().putLong("time", time).putInt("relay", normalized).apply();
-            ComplicationDataSourceUpdateRequester.create(this, new ComponentName(this, MachineComplication.class)).requestUpdateAll();
+            boolean updateComplication = previous != normalized;
+            if (!updateComplication && normalized >= 0) {
+                android.content.SharedPreferences settings = getSharedPreferences("watch_settings", 0);
+                for (int i = 0; i < FACE_KEYS.length; i++) {
+                    String key = FACE_KEYS[i];
+                    if (settings.getBoolean(FACE_SETTINGS[i], !FACE_SETTINGS[i].equals("showTool")) &&
+                            !p.getString(key, "").equals(key.equals("tool") ? cleanTool(map.getString(key, "")) : cleanTelemetry(map.getString(key, "")))) {
+                        updateComplication = true;
+                        break;
+                    }
+                }
+                long sinceRequest = now - p.getLong("complicationRequestedAt", 0);
+                if (sinceRequest < 0 || sinceRequest >= COMPLICATION_HEARTBEAT_MS) updateComplication = true;
+            }
+            android.content.SharedPreferences.Editor edit = p.edit().putLong("time", time).putInt("relay", normalized);
+            edit.remove("operation"); // Discard program text stored by earlier development builds.
+            for (String key : TELEMETRY_KEYS) edit.putString(key, normalized >= 0 ? (key.equals("tool") ? cleanTool(map.getString(key, "")) : cleanTelemetry(map.getString(key, ""))) : "");
+            if (updateComplication) edit.putLong("complicationRequestedAt", now);
+            edit.apply();
+            if (updateComplication) ComplicationDataSourceUpdateRequester.create(this, new ComponentName(this, MachineComplication.class)).requestUpdateAll();
             if (PatrolState.changedKnown(previous, normalized)) alertChange(this, normalized);
         }
     }

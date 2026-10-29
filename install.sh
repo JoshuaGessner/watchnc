@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--phone SERIAL] [--watch SERIAL] [--apk-dir DIRECTORY]
+Usage: bash install.sh [--phone SERIAL] [--watch SERIAL] [--apk-dir DIRECTORY]
 
 Connect and authorize your phone and watch with adb first. If a single phone
 and watch are connected, they are selected automatically. If multiple devices
@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if ! command -v "$adb" >/dev/null 2>&1 && [ -z "${ADB:-}" ]; then
-  for sdk in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk" "$HOME/Android/Sdk"; do
+  for sdk in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk" "$HOME/Android/Sdk" "${LOCALAPPDATA:-}/Android/Sdk"; do
     if [ -n "$sdk" ] && [ -x "$sdk/platform-tools/adb" ]; then adb="$sdk/platform-tools/adb"; break; fi
   done
 fi
@@ -66,6 +66,10 @@ find_devices() {
   devices=$("$adb" devices) || { echo "Could not contact adb." >&2; return 1; }
   phones=(); watches=()
   while IFS=$'\t' read -r serial state rest; do
+    case "$state" in
+      unauthorized) echo "Device $serial is unauthorized. Unlock it and accept the USB or wireless debugging prompt." >&2 ;;
+      offline) echo "Device $serial is offline. Reconnect it and check debugging is enabled." >&2 ;;
+    esac
     [ "$state" = "device" ] || continue
     [ -n "$serial" ] || continue
     if ! features=$("$adb" -s "$serial" shell pm list features 2>/dev/null); then
@@ -91,6 +95,7 @@ if [ -z "${watches[0]+set}" ] && [ -z "$watch" ] && [ -t 0 ]; then
       printf 'Enter its PAIRING IP:port: '
       read -r pair_address
       [ -n "$pair_address" ] || { echo "No pairing address entered." >&2; exit 1; }
+      echo "Enter the pairing code displayed on the watch when adb asks."
       "$adb" pair "$pair_address" || { echo "Pairing failed; check the address and code on the watch." >&2; exit 1; }
       echo "Return to Wireless debugging on the watch. Its connection port is usually different from the pairing port."
       printf 'Enter its CONNECTION IP:port: '
